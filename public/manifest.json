@@ -1,0 +1,17 @@
+{
+    "name": "台灣鳥類圖鑑",
+    "short_name": "鳥類圖鑑",
+    "description": "台灣鳥類寶可夢圖鑑 Web App",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#f8fafc",
+    "theme_color": "#10b981",
+    "icons": [
+      {
+        "src": "/icon-512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ]
+  }

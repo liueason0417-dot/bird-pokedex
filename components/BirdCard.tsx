@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Bird } from "@/types/bird";
 import { supabase } from '@/lib/supabase';
-import imageCompression from 'browser-image-compression';
 
 function getMigrationStyle(type: string) {
   if (!type) return "bg-slate-100 text-slate-700 ring-slate-200";
@@ -20,22 +19,17 @@ interface BirdCardProps {
 }
 
 export default function BirdCard({ bird }: BirdCardProps) {
-  const [user, setUser] = useState<any>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 檢查登入狀態 & 抓取是否已經有照片
+  // 檢查這隻鳥有沒有被這個玩家拍過
   useEffect(() => {
-    const checkUserAndPhoto = async () => {
+    const checkPhoto = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
 
       if (currentUser) {
-        // 去資料庫找找看這個玩家有沒有拍過這隻鳥
         const { data } = await supabase
-          .from('user_birds')
+          .from('catch_records') // 注意：這裡已經改成我們新的資料表了！
           .select('photo_url')
           .eq('user_id', currentUser.id)
           .eq('bird_id', bird.編號)
@@ -48,70 +42,13 @@ export default function BirdCard({ bird }: BirdCardProps) {
         }
       }
     };
-    checkUserAndPhoto();
+    checkPhoto();
   }, [bird.編號]);
-
-  // 處理照片上傳
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    try {
-      setIsUploading(true);
-
-      // 1. 壓縮圖片 (限制 300KB，保護你的容量)
-      const options = {
-        maxSizeMB: 0.3,
-        maxWidthOrHeight: 1080,
-        useWebWorker: true
-      };
-      const compressedFile = await imageCompression(file, options);
-
-      // 2. 上傳到 Cloudinary 圖床
-      const formData = new FormData();
-      formData.append('file', compressedFile);
-      formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      const data = await response.json();
-      if (!data.secure_url) throw new Error('上傳圖床失敗');
-      const uploadedUrl = data.secure_url;
-
-      // 3. 存入 Supabase 資料庫 (綁定玩家與鳥類)
-      const { error } = await supabase
-        .from('user_birds')
-        .insert([
-          {
-            user_id: user.id,
-            bird_id: bird.編號,
-            photo_url: uploadedUrl
-          }
-        ]);
-
-      if (error) throw error;
-
-      // 4. 更新畫面
-      setPhotoUrl(uploadedUrl);
-      alert(`🎉 成功解鎖【${bird.中文名}】！獲得 ${bird.基礎分數} 分！`);
-
-    } catch (error) {
-      console.error(error);
-      alert('上傳失敗，請稍後再試');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = ''; // 清空選擇的檔案
-    }
-  };
 
   return (
     <article className="group relative overflow-hidden rounded-2xl border border-emerald-100/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg flex flex-col h-full">
       
-      {/* 照片顯示區塊 */}
+      {/* 照片顯示區塊 (純展示) */}
       <div className="relative h-48 w-full bg-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100">
         {photoUrl ? (
           <img src={photoUrl} alt={bird.中文名} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -143,30 +80,6 @@ export default function BirdCard({ bird }: BirdCardProps) {
           </span>
           <span className="text-xs text-slate-400">#{bird.編號}</span>
         </div>
-
-        {/* 上傳按鈕區塊 (有登入才顯示) */}
-        {user && (
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-            />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all ${
-                photoUrl 
-                  ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
-                  : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:shadow-sm'
-              }`}
-            >
-              {isUploading ? '⏳ 壓縮上傳中...' : photoUrl ? '📸 更新照片' : '📸 上傳照片解鎖'}
-            </button>
-          </div>
-        )}
       </div>
     </article>
   );
