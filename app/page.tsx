@@ -5,19 +5,13 @@ import { supabase } from '@/lib/supabase';
 import type { Bird } from '@/types/bird';
 import BirdPokedex from '@/components/BirdPokedex';
 import Navbar from '@/components/Navbar';
-import UploadModal from '@/components/UploadModal';
 
 export default function HomePage() {
   const [birds, setBirds] = useState<Bird[]>([]);
-  const [user, setUser] = useState<any>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 抓取鳥類資料與登入狀態
+  // 抓取鳥類資料
   const fetchData = async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    setUser(sessionData.session?.user ?? null);
-
     const { data: birdsData, error: birdsError } = await supabase
       .from('birds')
       .select('*')
@@ -32,12 +26,6 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchData();
-
-    // 監聽 Navbar 傳來的打開視窗事件
-    const handleOpenModal = () => setIsModalOpen(true);
-    window.addEventListener('open-upload-modal', handleOpenModal);
-    
-    return () => window.removeEventListener('open-upload-modal', handleOpenModal);
   }, []);
 
   if (error) {
@@ -54,18 +42,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <Navbar />
-      
       <BirdPokedex initialBirds={birds} />
-
-      {/* 上傳視窗 (隱藏狀態，點擊按鈕才顯示) */}
-      {isModalOpen && user && (
-        <UploadModal 
-          user={user} 
-          birds={birds} 
-          onClose={() => setIsModalOpen(false)} 
-          onUploadSuccess={fetchData} // 上傳成功後重新抓取資料
-        />
-      )}
     </main>
   );
 }
