@@ -18,6 +18,10 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // 【新增】記錄拍攝日期，預設為今天 (格式: YYYY-MM-DD)
+  const [catchDate, setCatchDate] = useState(() => new Date().toISOString().split('T')[0]);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 篩選鳥類下拉選單
@@ -65,13 +69,18 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
       const isFirstCatch = !existingRecords || existingRecords.length === 0;
       const scoreEarned = isFirstCatch ? targetBird.基礎分數 : 1; // 首抓拿全額，重複拿 1 分
 
+      // 【新增】處理時區問題，確保存入資料庫的日期是正確的
+      const saveDate = new Date(catchDate);
+      saveDate.setHours(12, 0, 0, 0); // 設定為中午，避免時區轉換時變成前一天
+
       // 4. 寫入資料庫
       const { error } = await supabase.from('catch_records').insert([{
         user_id: user.id,
         bird_id: targetBird.編號,
         photo_url: data.secure_url,
         is_first_catch: isFirstCatch,
-        score_earned: scoreEarned
+        score_earned: scoreEarned,
+        created_at: saveDate.toISOString() // 【新增】覆蓋預設時間，改用玩家選擇的日期
       }]);
 
       if (error) throw error;
@@ -90,7 +99,7 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-800">📸 新增賞鳥紀錄</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
@@ -99,7 +108,7 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
         {/* 選擇照片 */}
         <div 
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-slate-300 rounded-xl h-48 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 hover:border-emerald-400 transition-colors mb-6 overflow-hidden relative"
+          className="border-2 border-dashed border-slate-300 rounded-xl h-48 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 hover:border-emerald-400 transition-colors mb-6 overflow-hidden relative shrink-0"
         >
           {previewUrl ? (
             <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
@@ -113,25 +122,37 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
         </div>
 
         {/* 搜尋與選擇鳥類 */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="block text-sm font-bold text-slate-700 mb-2">這是什麼鳥？</label>
           <input 
             type="text" 
             placeholder="輸入關鍵字搜尋 (例如: 黑冠)" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border border-slate-200 mb-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+            className="w-full px-4 py-2 rounded-lg border border-slate-200 mb-2 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 placeholder:text-slate-400"
           />
           <select 
             value={selectedBirdId} 
             onChange={(e) => setSelectedBirdId(Number(e.target.value))}
-            className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none"
+            className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900"
           >
             <option value="">-- 請選擇鳥類 --</option>
             {filteredBirds.map(b => (
               <option key={b.編號} value={b.編號}>{b.中文名} ({b.基礎分數}分)</option>
             ))}
           </select>
+        </div>
+
+        {/* 【新增】拍攝日期選擇器 */}
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-slate-700 mb-2">拍攝日期</label>
+          <input 
+            type="date" 
+            value={catchDate}
+            max={new Date().toISOString().split('T')[0]} // 限制不能選未來的日期
+            onChange={(e) => setCatchDate(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 cursor-pointer"
+          />
         </div>
 
         {/* 送出按鈕 */}

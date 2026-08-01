@@ -11,8 +11,8 @@ interface BirdPokedexProps {
 export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
   const [searchQuery, setSearchQuery] = useState('');
   
-  // 【新增 1】記住玩家選擇的排序方式，預設為 'id' (編號)
-  const [sortBy, setSortBy] = useState<'id' | 'rarity'>('id');
+  // 【修改這裡】將預設值從 'id' 改成 'rarity'，這樣一進來就會是常見度優先！
+  const [sortBy, setSortBy] = useState<'id' | 'rarity'>('rarity');
 
   // 安全防護：確保傳進來的絕對是一個清單（陣列）
   const safeBirds = Array.isArray(initialBirds) ? initialBirds : [];
@@ -28,13 +28,54 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
     );
   });
 
-  // 【新增 2】把過濾完的鳥類進行排序
+  // 把你的 CSV 簡寫轉換成「稀有度權重」(數字越小，排越前面)
+  const getStatusWeight = (status: string) => {
+    // 遇到沒資料、歷史紀錄、無、問號的鳥，全部給最高權重 (99分，踢到最後面)
+    if (!status || status.includes('歷史紀錄') || status.includes('無') || status.includes('?')) {
+      return 99; 
+    }
+    
+    let weight = 50; // 預設中間值
+
+    // 1. 先看是哪種鳥 (決定大方向)
+    if (status.includes('引進種') || status.includes('留')) weight = 10; 
+    else if (status.includes('冬') || status.includes('夏')) weight = 20; 
+    else if (status.includes('過')) weight = 30; 
+    else if (status.includes('海')) weight = 40; 
+    else if (status.includes('迷')) weight = 50; 
+
+    // 2. 再看普遍程度 (微調順序)
+    if (status.includes('普') && !status.includes('不普')) weight -= 2; 
+    if (status.includes('稀')) weight += 2; 
+
+    return weight;
+  };
+
+  // 把過濾完的鳥類進行三階段排序
   const sortedBirds = [...filteredBirds].sort((a, b) => {
     if (sortBy === 'rarity') {
-      // 依常見度排序：基礎分數越低越前面 (加上 || 0 是為了防止資料庫有空值報錯)
-      return (a.基礎分數 || 0) - (b.基礎分數 || 0);
+      
+      // 如果資料庫分數是空的，就給牠 999 分 (最罕見)；否則使用原本的分數
+      const scoreA = a.基礎分數 ? Number(a.基礎分數) : 999;
+      const scoreB = b.基礎分數 ? Number(b.基礎分數) : 999;
+      
+      // 第一關：先比基礎分數 (分數低的在前面)
+      if (scoreA !== scoreB) {
+        return scoreA - scoreB;
+      }
+      
+      // 第二關：分數一樣的話，讓電腦看「遷徙屬性」自動排 (留鳥 > 候鳥 > 迷鳥)
+      const weightA = getStatusWeight(a.遷徙屬性 || '');
+      const weightB = getStatusWeight(b.遷徙屬性 || '');
+      if (weightA !== weightB) {
+        return weightA - weightB;
+      }
+      
+      // 第三關：如果連屬性都一模一樣，最後才照編號排
+      return (a.編號 || 0) - (b.編號 || 0);
     }
-    // 預設依編號排序：編號越小越前面
+    
+    // 依編號排序：編號越小越前面
     return (a.編號 || 0) - (b.編號 || 0);
   });
 
@@ -43,10 +84,10 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
       {/* 搜尋與排序列 */}
       <div className="mx-auto mb-12 max-w-2xl">
         
-        {/* 【新增 3】使用 flex 讓搜尋框和下拉選單在電腦版並排，手機版上下排列 */}
+        {/* 使用 flex 讓搜尋框和下拉選單在電腦版並排，手機版上下排列 */}
         <div className="flex flex-col gap-4 sm:flex-row">
           
-          {/* 原本的搜尋框 */}
+          {/* 搜尋框 */}
           <div className="relative flex-1">
             <input
               type="text"
@@ -57,7 +98,7 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
             />
           </div>
 
-          {/* 新增的下拉選單 (樣式與搜尋框保持一致) */}
+          {/* 排序下拉選單 */}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'id' | 'rarity')}
@@ -76,7 +117,6 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
 
       {/* 卡片網格 */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {/* 【修改】這裡原本是 filteredBirds.map，現在改成 sortedBirds.map */}
         {sortedBirds.map((bird) => (
           <BirdCard key={bird.編號} bird={bird} />
         ))}
