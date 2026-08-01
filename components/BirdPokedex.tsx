@@ -12,9 +12,8 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'id' | 'rarity'>('rarity');
   
-  // 【新增】分頁狀態：記住現在在第幾頁，預設第 1 頁
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 24; // 每頁顯示 24 隻鳥
+  const ITEMS_PER_PAGE = 24; // 每頁 24 隻鳥
 
   const safeBirds = Array.isArray(initialBirds) ? initialBirds : [];
 
@@ -59,26 +58,55 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
     return (a.編號 || 0) - (b.編號 || 0);
   });
 
-  // 【新增】當玩家搜尋或改變排序時，自動回到第 1 頁
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, sortBy]);
 
-  // 【新增】計算分頁資料
   const totalPages = Math.ceil(sortedBirds.length / ITEMS_PER_PAGE);
   const currentBirds = sortedBirds.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
 
-  // 【新增】換頁並自動捲動到最上面的小工具
   const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
     setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // 換頁時平滑捲動到頂部
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // 換頁自動回到頂部
+  };
+
+  // 【新增】智慧頁碼演算法：生成像是 [1, '...', 4, 5, 6, '...', 30] 的簡潔按鈕
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (i !== 1 && i !== totalPages) {
+          pages.push(i);
+        }
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* 搜尋與排序 */}
       <div className="mx-auto mb-12 max-w-2xl">
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
@@ -104,35 +132,63 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
         </p>
       </div>
 
-      {/* 【修改】這裡改成渲染 currentBirds (當前頁面的 24 隻鳥) */}
+      {/* 鳥類網格卡片 */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {currentBirds.map((bird) => (
           <BirdCard key={bird.編號} bird={bird} />
         ))}
       </div>
 
-      {/* 【新增】底部分頁控制列 */}
+      {/* 【全新質感膠囊分頁列】 */}
       {totalPages > 1 && (
-        <div className="mt-12 flex items-center justify-center gap-4">
+        <div className="mt-12 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+          
+          {/* 上一頁按鈕 */}
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-4 py-2 rounded-lg font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="px-3.5 py-2 rounded-xl text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-600 disabled:hover:border-slate-200 disabled:cursor-not-allowed shadow-sm transition-all"
           >
             上一頁
           </button>
-          
-          <span className="text-slate-600 font-medium">
-            第 <span className="font-bold text-emerald-600">{currentPage}</span> / {totalPages} 頁
-          </span>
 
+          {/* 頁碼膠囊按鈕群 */}
+          {getPageNumbers().map((page, index) => {
+            if (page === '...') {
+              return (
+                <span key={`ellipsis-${index}`} className="px-2 py-2 text-slate-400 font-bold text-sm select-none">
+                  •••
+                </span>
+              );
+            }
+
+            const pageNum = page as number;
+            const isActive = pageNum === currentPage;
+
+            return (
+              <button
+                key={`page-${pageNum}`}
+                onClick={() => handlePageChange(pageNum)}
+                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center ${
+                  isActive
+                    ? 'bg-emerald-600 text-white shadow-emerald-600/20 shadow-md scale-105' // 當前頁面：發光翡翠綠
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200' // 其他頁面：乾淨白膠囊
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          {/* 下一頁按鈕 */}
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="px-4 py-2 rounded-lg font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="px-3.5 py-2 rounded-xl text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-600 disabled:hover:border-slate-200 disabled:cursor-not-allowed shadow-sm transition-all"
           >
             下一頁
           </button>
+
         </div>
       )}
 
