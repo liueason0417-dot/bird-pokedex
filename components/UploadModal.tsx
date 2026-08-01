@@ -19,7 +19,7 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
-  // 【新增】記錄拍攝日期，預設為今天 (格式: YYYY-MM-DD)
+  // 記錄拍攝日期，預設為今天 (格式: YYYY-MM-DD)
   const [catchDate, setCatchDate] = useState(() => new Date().toISOString().split('T')[0]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,9 +67,18 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
         .eq('bird_id', targetBird.編號);
       
       const isFirstCatch = !existingRecords || existingRecords.length === 0;
-      const scoreEarned = isFirstCatch ? targetBird.基礎分數 : 1; // 首抓拿全額，重複拿 1 分
+      
+      // 【修改】全新的計分邏輯：引進種首抓只給 2 分！
+      let scoreEarned = 1; // 重複抓預設都是 1 分
+      if (isFirstCatch) {
+        if (targetBird.遷徙屬性?.includes('引進種')) {
+          scoreEarned = 2; // 如果是引進種，首抓只給 2 分
+        } else {
+          scoreEarned = targetBird.基礎分數 || 10; // 其他鳥類，依照資料庫的基礎分數給分
+        }
+      }
 
-      // 【新增】處理時區問題，確保存入資料庫的日期是正確的
+      // 處理時區問題，確保存入資料庫的日期是正確的
       const saveDate = new Date(catchDate);
       saveDate.setHours(12, 0, 0, 0); // 設定為中午，避免時區轉換時變成前一天
 
@@ -80,7 +89,7 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
         photo_url: data.secure_url,
         is_first_catch: isFirstCatch,
         score_earned: scoreEarned,
-        created_at: saveDate.toISOString() // 【新增】覆蓋預設時間，改用玩家選擇的日期
+        created_at: saveDate.toISOString() // 覆蓋預設時間，改用玩家選擇的日期
       }]);
 
       if (error) throw error;
@@ -138,12 +147,15 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
           >
             <option value="">-- 請選擇鳥類 --</option>
             {filteredBirds.map(b => (
-              <option key={b.編號} value={b.編號}>{b.中文名} ({b.基礎分數}分)</option>
+              // 【修改】下拉選單顯示的分數也會自動判斷是不是引進種
+              <option key={b.編號} value={b.編號}>
+                {b.中文名} ({b.遷徙屬性?.includes('引進種') ? 2 : (b.基礎分數 || 10)}分)
+              </option>
             ))}
           </select>
         </div>
 
-        {/* 【新增】拍攝日期選擇器 */}
+        {/* 拍攝日期選擇器 */}
         <div className="mb-6">
           <label className="block text-sm font-bold text-slate-700 mb-2">拍攝日期</label>
           <input 
