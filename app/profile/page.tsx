@@ -66,17 +66,15 @@ export default function ProfilePage() {
     }
   };
 
-  // 【真正會刪除資料庫的】刪除功能
+  // 刪除功能
   const handleDelete = async (recordId: number) => {
     const isConfirmed = window.confirm('確定要刪除這筆紀錄嗎？刪除後分數會自動扣除喔！');
     if (!isConfirmed) return;
 
     try {
-      // 告訴 Supabase 真正刪除這筆資料
       const { error } = await supabase.from('catch_records').delete().eq('id', recordId);
       if (error) throw error;
       
-      // 畫面上移除
       setRecords(prevRecords => prevRecords.filter(record => record.id !== recordId));
       alert('🗑️ 紀錄已成功刪除！');
     } catch (error) {
@@ -114,6 +112,7 @@ export default function ProfilePage() {
       <Navbar />
       
       <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* 玩家名片 */}
         <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-10 mb-8 border border-slate-100">
           <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
             {user.user_metadata?.avatar_url ? (
@@ -189,8 +188,9 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* 【修改】去遊戲化用語，改為「賞鳥紀錄」 */}
         <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          📸 我的抓寶紀錄
+          📸 我的賞鳥紀錄
         </h3>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -207,9 +207,10 @@ export default function ProfilePage() {
                 </button>
                 <div className="h-56 overflow-hidden bg-slate-100 relative">
                   <img src={record.photo_url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" alt="鳥類照片" />
+                  {/* 【修改】改為「首次紀錄」 */}
                   {record.is_first_catch && (
                     <div className="absolute top-3 left-3 bg-amber-400 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                      ✨ 首抓
+                      ✨ 首次紀錄
                     </div>
                   )}
                 </div>
@@ -232,7 +233,8 @@ export default function ProfilePage() {
         {records.length === 0 && (
           <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 border-dashed">
             <span className="text-6xl block mb-4 opacity-50">🦅</span>
-            <p className="text-lg text-slate-500 font-medium">背包空空的，快去戶外抓寶吧！</p>
+            {/* 【修改】改為「賞鳥」 */}
+            <p className="text-lg text-slate-500 font-medium">背包空空的，快去戶外賞鳥吧！</p>
           </div>
         )}
       </div>
