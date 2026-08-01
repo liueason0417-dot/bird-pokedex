@@ -39,6 +39,31 @@ export default function ProfilePage() {
     fetchProfileData();
   }, []);
 
+  // 【新增】刪除紀錄的功能
+  const handleDelete = async (recordId: number) => {
+    // 1. 跳出確認視窗，避免玩家不小心按到
+    const isConfirmed = window.confirm('確定要刪除這筆紀錄嗎？刪除後分數會自動扣除喔！');
+    if (!isConfirmed) return;
+
+    try {
+      // 2. 告訴 Supabase 刪除這筆資料
+      const { error } = await supabase
+        .from('catch_records')
+        .delete()
+        .eq('id', recordId);
+
+      if (error) throw error;
+
+      // 3. 成功後，把這筆紀錄從畫面上移除 (這樣分數就會瞬間自動重新計算！)
+      setRecords(prevRecords => prevRecords.filter(record => record.id !== recordId));
+      alert('🗑️ 紀錄已成功刪除！');
+
+    } catch (error) {
+      console.error('刪除失敗:', error);
+      alert('刪除失敗，請稍後再試');
+    }
+  };
+
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">載入中...</div>;
 
   if (!user) {
@@ -50,15 +75,15 @@ export default function ProfilePage() {
     );
   }
 
-  // 計算數據
+  // 計算數據 (因為 records 改變，這裡會自動重新計算)
   const totalScore = records.reduce((sum, record) => sum + (record.score_earned || 0), 0);
   const uniqueBirds = new Set(records.map(r => r.bird_id)).size;
   
-  // 【新增】計算圖鑑完成度百分比 (最高 100%)
+  // 計算圖鑑完成度百分比
   const TOTAL_BIRDS = 703;
   const progressPercentage = Math.min(100, Math.round((uniqueBirds / TOTAL_BIRDS) * 100));
 
-  // 【新增】動態稱號系統 (根據解鎖數量決定稱號)
+  // 動態稱號系統
   let playerTitle = "新手鳥友 🌱";
   if (uniqueBirds >= 10) playerTitle = "業餘觀察家 🔭";
   if (uniqueBirds >= 50) playerTitle = "資深鳥人 🦅";
@@ -80,26 +105,22 @@ export default function ProfilePage() {
             )}
             <div className="text-center sm:text-left">
               <h2 className="text-3xl font-black text-slate-800 mb-1">{user.user_metadata?.full_name || '鳥友'}</h2>
-              {/* 【修改】顯示動態稱號 */}
               <p className="text-emerald-600 font-bold text-lg">{playerTitle}</p>
             </div>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            {/* 總積分區塊 */}
             <div className="bg-emerald-50 rounded-2xl p-6 text-center border border-emerald-100/50 flex flex-col justify-center">
               <div className="text-sm text-emerald-600 font-bold mb-2">總積分</div>
               <div className="text-4xl sm:text-5xl font-black text-emerald-700">{totalScore}</div>
             </div>
             
-            {/* 解鎖進度區塊 */}
             <div className="bg-sky-50 rounded-2xl p-6 text-center border border-sky-100/50">
               <div className="text-sm text-sky-600 font-bold mb-2">已解鎖圖鑑</div>
               <div className="text-4xl sm:text-5xl font-black text-sky-700 mb-4">
                 {uniqueBirds} <span className="text-xl sm:text-2xl text-sky-400 font-bold">/ {TOTAL_BIRDS}</span>
               </div>
               
-              {/* 【新增】超帥的進度條 */}
               <div className="w-full bg-sky-200/50 rounded-full h-3 mb-1 overflow-hidden">
                 <div 
                   className="bg-sky-500 h-3 rounded-full transition-all duration-1000 ease-out" 
@@ -122,7 +143,17 @@ export default function ProfilePage() {
           {records.map(record => {
             const birdInfo = birds.find(b => b.編號 === record.bird_id);
             return (
-              <div key={record.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+              <div key={record.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative group">
+                
+                {/* 【新增】刪除按鈕 (放在照片右上角) */}
+                <button
+                  onClick={() => handleDelete(record.id)}
+                  className="absolute top-3 right-3 z-10 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm backdrop-blur-sm transition-colors opacity-80 hover:opacity-100"
+                  title="刪除這筆紀錄"
+                >
+                  🗑️
+                </button>
+
                 <div className="h-56 overflow-hidden bg-slate-100 relative">
                   <img src={record.photo_url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" alt="鳥類照片" />
                   {record.is_first_catch && (

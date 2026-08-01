@@ -36,7 +36,7 @@ export default function BirdCard({ bird }: BirdCardProps) {
           .eq('bird_id', bird.編號)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle(); // 【修改這裡】找不到就算了，不會報錯
           
         if (data) {
           setPhotoUrl(data.photo_url);
