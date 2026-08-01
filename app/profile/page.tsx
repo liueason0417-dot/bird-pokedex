@@ -16,6 +16,9 @@ export default function ProfilePage() {
   const [newName, setNewName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
 
+  // 【新增】點擊看大圖的狀態
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+
   useEffect(() => {
     const fetchProfileData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -43,7 +46,6 @@ export default function ProfilePage() {
     fetchProfileData();
   }, []);
 
-  // 儲存新暱稱的函數
   const handleSaveName = async () => {
     if (!newName.trim()) return;
     setIsSavingName(true);
@@ -66,7 +68,6 @@ export default function ProfilePage() {
     }
   };
 
-  // 刪除功能
   const handleDelete = async (recordId: number) => {
     const isConfirmed = window.confirm('確定要刪除這筆紀錄嗎？刪除後分數會自動扣除喔！');
     if (!isConfirmed) return;
@@ -188,7 +189,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 【修改】去遊戲化用語，改為「賞鳥紀錄」 */}
+        {/* 我的賞鳥紀錄 */}
         <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
           📸 我的賞鳥紀錄
         </h3>
@@ -197,17 +198,24 @@ export default function ProfilePage() {
           {records.map(record => {
             const birdInfo = birds.find(b => b.編號 === record.bird_id);
             return (
-              <div key={record.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative group">
+              <div 
+                key={record.id} 
+                onClick={() => setSelectedRecord(record)} // 【新增】點擊卡片開啟大圖視窗
+                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-all relative group cursor-pointer hover:-translate-y-1"
+              >
                 <button
-                  onClick={() => handleDelete(record.id)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 【新增】阻止事件冒泡，點擊垃圾桶時不會打開大圖視窗
+                    handleDelete(record.id);
+                  }}
                   className="absolute top-3 right-3 z-10 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm backdrop-blur-sm transition-colors opacity-80 hover:opacity-100"
                   title="刪除這筆紀錄"
                 >
                   🗑️
                 </button>
+                
                 <div className="h-56 overflow-hidden bg-slate-100 relative">
                   <img src={record.photo_url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" alt="鳥類照片" />
-                  {/* 【修改】改為「首次紀錄」 */}
                   {record.is_first_catch && (
                     <div className="absolute top-3 left-3 bg-amber-400 text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
                       ✨ 首次紀錄
@@ -233,11 +241,68 @@ export default function ProfilePage() {
         {records.length === 0 && (
           <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 border-dashed">
             <span className="text-6xl block mb-4 opacity-50">🦅</span>
-            {/* 【修改】改為「賞鳥」 */}
             <p className="text-lg text-slate-500 font-medium">背包空空的，快去戶外賞鳥吧！</p>
           </div>
         )}
       </div>
+
+      {/* 【新增】照片大圖檢視視窗 (Lightbox Modal) */}
+      {selectedRecord && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md transition-all"
+          onClick={() => setSelectedRecord(null)} // 點擊黑色背景自動關閉
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()} // 點擊視窗內部不關閉
+          >
+            {/* 關閉按鈕 */}
+            <button 
+              onClick={() => setSelectedRecord(null)}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black text-white w-10 h-10 rounded-full flex items-center justify-center text-xl font-bold z-10 transition-colors shadow-md"
+            >
+              ✕
+            </button>
+
+            {/* 大圖片展示區 */}
+            <div className="bg-slate-950 flex items-center justify-center overflow-hidden flex-1 min-h-[300px]">
+              <img 
+                src={selectedRecord.photo_url} 
+                alt="鳥類大圖" 
+                className="max-h-[65vh] w-auto object-contain mx-auto"
+              />
+            </div>
+
+            {/* 詳細資訊區 */}
+            <div className="p-6 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-slate-100">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="text-2xl font-black text-slate-800">
+                    {birds.find(b => b.編號 === selectedRecord.bird_id)?.中文名 || '未知鳥類'}
+                  </h3>
+                  {selectedRecord.is_first_catch && (
+                    <span className="bg-amber-400 text-white text-xs font-black px-2.5 py-1 rounded-full">
+                      ✨ 首次紀錄
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-500 italic">
+                  {birds.find(b => b.編號 === selectedRecord.bird_id)?.英文名 || ''}
+                </p>
+              </div>
+
+              <div className="text-center sm:text-right">
+                <div className="text-emerald-600 font-black text-xl mb-1">
+                  +{selectedRecord.score_earned} 分
+                </div>
+                <div className="text-xs text-slate-400 font-medium">
+                  觀察日期：{new Date(selectedRecord.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
