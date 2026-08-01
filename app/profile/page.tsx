@@ -11,6 +11,11 @@ export default function ProfilePage() {
   const [birds, setBirds] = useState<Bird[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 修改暱稱的狀態
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
   useEffect(() => {
     const fetchProfileData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -19,15 +24,14 @@ export default function ProfilePage() {
         return;
       }
       setUser(session.user);
+      setNewName(session.user.user_metadata?.custom_name || session.user.user_metadata?.full_name || '');
 
-      // 抓取玩家的所有紀錄
       const { data: recordsData } = await supabase
         .from('catch_records')
         .select('*')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
-      // 抓取鳥類字典 (用來對照名字)
       const { data: birdsData } = await supabase.from('birds').select('*');
 
       if (recordsData) setRecords(recordsData);
@@ -39,25 +43,42 @@ export default function ProfilePage() {
     fetchProfileData();
   }, []);
 
-  // 【新增】刪除紀錄的功能
+  // 儲存新暱稱的函數
+  const handleSaveName = async () => {
+    if (!newName.trim()) return;
+    setIsSavingName(true);
+    
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { custom_name: newName.trim() }
+      });
+
+      if (error) throw error;
+      
+      setUser(data.user);
+      setIsEditingName(false);
+      alert('✅ 暱稱修改成功！排行榜將會顯示你的新名字。');
+    } catch (error) {
+      console.error('更新名字失敗:', error);
+      alert('修改失敗，請稍後再試');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  // 【真正會刪除資料庫的】刪除功能
   const handleDelete = async (recordId: number) => {
-    // 1. 跳出確認視窗，避免玩家不小心按到
     const isConfirmed = window.confirm('確定要刪除這筆紀錄嗎？刪除後分數會自動扣除喔！');
     if (!isConfirmed) return;
 
     try {
-      // 2. 告訴 Supabase 刪除這筆資料
-      const { error } = await supabase
-        .from('catch_records')
-        .delete()
-        .eq('id', recordId);
-
+      // 告訴 Supabase 真正刪除這筆資料
+      const { error } = await supabase.from('catch_records').delete().eq('id', recordId);
       if (error) throw error;
-
-      // 3. 成功後，把這筆紀錄從畫面上移除 (這樣分數就會瞬間自動重新計算！)
+      
+      // 畫面上移除
       setRecords(prevRecords => prevRecords.filter(record => record.id !== recordId));
       alert('🗑️ 紀錄已成功刪除！');
-
     } catch (error) {
       console.error('刪除失敗:', error);
       alert('刪除失敗，請稍後再試');
@@ -75,27 +96,24 @@ export default function ProfilePage() {
     );
   }
 
-  // 計算數據 (因為 records 改變，這裡會自動重新計算)
   const totalScore = records.reduce((sum, record) => sum + (record.score_earned || 0), 0);
   const uniqueBirds = new Set(records.map(r => r.bird_id)).size;
-  
-  // 計算圖鑑完成度百分比
   const TOTAL_BIRDS = 703;
   const progressPercentage = Math.min(100, Math.round((uniqueBirds / TOTAL_BIRDS) * 100));
 
-  // 動態稱號系統
   let playerTitle = "新手鳥友 🌱";
   if (uniqueBirds >= 10) playerTitle = "業餘觀察家 🔭";
   if (uniqueBirds >= 50) playerTitle = "資深鳥人 🦅";
   if (uniqueBirds >= 150) playerTitle = "生態大師 👑";
   if (uniqueBirds >= 300) playerTitle = "圖鑑守護者 🌟";
 
+  const displayName = user.user_metadata?.custom_name || user.user_metadata?.full_name || '神秘鳥友';
+
   return (
     <main className="min-h-screen bg-slate-50 pb-12">
       <Navbar />
       
       <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* 玩家名片 */}
         <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-10 mb-8 border border-slate-100">
           <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
             {user.user_metadata?.avatar_url ? (
@@ -103,8 +121,45 @@ export default function ProfilePage() {
             ) : (
               <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center text-3xl">👤</div>
             )}
-            <div className="text-center sm:text-left">
-              <h2 className="text-3xl font-black text-slate-800 mb-1">{user.user_metadata?.full_name || '鳥友'}</h2>
+            
+            <div className="text-center sm:text-left flex-1">
+              {isEditingName ? (
+                <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
+                  <input 
+                    type="text" 
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="輸入新暱稱 (可匿名)"
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 font-bold"
+                    maxLength={15}
+                  />
+                  <button 
+                    onClick={handleSaveName}
+                    disabled={isSavingName}
+                    className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    {isSavingName ? '儲存中' : '儲存'}
+                  </button>
+                  <button 
+                    onClick={() => setIsEditingName(false)}
+                    className="bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-300"
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center sm:justify-start gap-3 mb-1">
+                  <h2 className="text-3xl font-black text-slate-800">{displayName}</h2>
+                  <button 
+                    onClick={() => setIsEditingName(true)}
+                    className="text-slate-400 hover:text-emerald-600 transition-colors"
+                    title="修改暱稱"
+                  >
+                    ✏️
+                  </button>
+                </div>
+              )}
+              
               <p className="text-emerald-600 font-bold text-lg">{playerTitle}</p>
             </div>
           </div>
@@ -134,7 +189,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 照片動態牆 */}
         <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
           📸 我的抓寶紀錄
         </h3>
@@ -144,8 +198,6 @@ export default function ProfilePage() {
             const birdInfo = birds.find(b => b.編號 === record.bird_id);
             return (
               <div key={record.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative group">
-                
-                {/* 【新增】刪除按鈕 (放在照片右上角) */}
                 <button
                   onClick={() => handleDelete(record.id)}
                   className="absolute top-3 right-3 z-10 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm backdrop-blur-sm transition-colors opacity-80 hover:opacity-100"
@@ -153,7 +205,6 @@ export default function ProfilePage() {
                 >
                   🗑️
                 </button>
-
                 <div className="h-56 overflow-hidden bg-slate-100 relative">
                   <img src={record.photo_url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" alt="鳥類照片" />
                   {record.is_first_catch && (
