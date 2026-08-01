@@ -59,7 +59,7 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
       const data = await res.json();
       if (!data.secure_url) throw new Error('圖床上傳失敗');
 
-      // 3. 檢查是否為首抓
+      // 3. 檢查是否為首次紀錄
       const { data: existingRecords } = await supabase
         .from('catch_records')
         .select('id')
@@ -68,14 +68,19 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
       
       const isFirstCatch = !existingRecords || existingRecords.length === 0;
       
-      // 【修改】全新的計分邏輯：引進種首抓只給 2 分！
-      let scoreEarned = 1; // 重複抓預設都是 1 分
+      // 【修改】算出這隻鳥的「首次分數」
+      let baseFirstScore = targetBird.基礎分數 || 10;
+      if (targetBird.遷徙屬性?.includes('引進種')) {
+        baseFirstScore = 2; // 引進種首次拿 2 分
+      }
+
+      // 【修改】公平比例計分邏輯！
+      let scoreEarned = 1;
       if (isFirstCatch) {
-        if (targetBird.遷徙屬性?.includes('引進種')) {
-          scoreEarned = 2; // 如果是引進種，首抓只給 2 分
-        } else {
-          scoreEarned = targetBird.基礎分數 || 10; // 其他鳥類，依照資料庫的基礎分數給分
-        }
+        scoreEarned = baseFirstScore; // 首次紀錄：拿全額分數
+      } else {
+        // 再次紀錄：拿首次分數的 20% (保底最少 1 分)
+        scoreEarned = Math.max(1, Math.floor(baseFirstScore * 0.2));
       }
 
       // 處理時區問題，確保存入資料庫的日期是正確的
@@ -94,7 +99,8 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
 
       if (error) throw error;
 
-      alert(`🎉 成功紀錄！${isFirstCatch ? '首抓解鎖！' : '重複捕獲！'} 獲得 ${scoreEarned} 分！`);
+      // 【修改】使用專業賞鳥用語「首次解鎖紀錄 / 再次觀察紀錄」
+      alert(`🎉 成功紀錄！${isFirstCatch ? '首次解鎖紀錄！' : '再次觀察紀錄！'} 獲得 ${scoreEarned} 分！`);
       onUploadSuccess();
       onClose();
 
@@ -146,12 +152,16 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
             className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900"
           >
             <option value="">-- 請選擇鳥類 --</option>
-            {filteredBirds.map(b => (
-              // 【修改】下拉選單顯示的分數也會自動判斷是不是引進種
-              <option key={b.編號} value={b.編號}>
-                {b.中文名} ({b.遷徙屬性?.includes('引進種') ? 2 : (b.基礎分數 || 10)}分)
-              </option>
-            ))}
+            {filteredBirds.map(b => {
+              // 【修改】下拉選單清晰展示：首次可拿幾分 / 再次可拿幾分
+              const firstScore = b.遷徙屬性?.includes('引進種') ? 2 : (b.基礎分數 || 10);
+              const repeatScore = Math.max(1, Math.floor(firstScore * 0.2));
+              return (
+                <option key={b.編號} value={b.編號}>
+                  {b.中文名} (首次: {firstScore}分 / 再次: {repeatScore}分)
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -161,7 +171,7 @@ export default function UploadModal({ user, birds, onClose, onUploadSuccess }: U
           <input 
             type="date" 
             value={catchDate}
-            max={new Date().toISOString().split('T')[0]} // 限制不能選未來的日期
+            max={new Date().toISOString().split('T')[0]} 
             onChange={(e) => setCatchDate(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 cursor-pointer"
           />
