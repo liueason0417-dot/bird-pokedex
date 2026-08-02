@@ -20,9 +20,8 @@ interface BirdCardProps {
 
 export default function BirdCard({ bird }: BirdCardProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // 新增載入狀態，避免畫面閃爍
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 檢查這隻鳥有沒有被這個玩家拍過
   useEffect(() => {
     const checkPhoto = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -36,7 +35,7 @@ export default function BirdCard({ bird }: BirdCardProps) {
           .eq('bird_id', bird.編號)
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle(); // 【修改這裡】找不到就算了，不會報錯
+          .maybeSingle(); 
           
         if (data) {
           setPhotoUrl(data.photo_url);
@@ -47,22 +46,23 @@ export default function BirdCard({ bird }: BirdCardProps) {
     checkPhoto();
   }, [bird.編號]);
 
-  // 判斷是否已解鎖
   const isUnlocked = !!photoUrl;
+
+  // 【新增】計算卡片上要顯示的分數 (引進種顯示 2分，空白顯示 100分)
+  const displayScore = bird.遷徙屬性?.includes('引進種') ? 2 : (bird.基礎分數 || 100);
 
   return (
     <article 
       className={`group relative overflow-hidden rounded-2xl transition-all duration-300 flex flex-col h-full
         ${isUnlocked 
-          ? 'border-2 border-emerald-400 bg-white shadow-md hover:-translate-y-1 hover:shadow-xl' // 已解鎖：綠色粗框、亮白色、浮起陰影
-          : 'border border-slate-200 bg-slate-50 shadow-sm hover:-translate-y-1 hover:shadow-md grayscale-[40%]' // 未解鎖：灰色底、稍微灰階
+          ? 'border-2 border-emerald-400 bg-white shadow-md hover:-translate-y-1 hover:shadow-xl' 
+          : 'border border-slate-200 bg-slate-50 shadow-sm hover:-translate-y-1 hover:shadow-md grayscale-[40%]' 
         }
       `}
     >
       {/* 照片顯示區塊 */}
       <div className="relative h-48 w-full bg-slate-200 flex items-center justify-center overflow-hidden border-b border-slate-100">
         
-        {/* 狀態標籤 (右上角) */}
         {!isLoading && (
           <div className="absolute top-3 right-3 z-10">
             {isUnlocked ? (
@@ -77,7 +77,6 @@ export default function BirdCard({ bird }: BirdCardProps) {
           </div>
         )}
 
-        {/* 圖片或佔位符 */}
         {isUnlocked ? (
           <img 
             src={photoUrl} 
@@ -104,10 +103,11 @@ export default function BirdCard({ bird }: BirdCardProps) {
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
+            {/* 【修改】顯示正確計算後的分數，不會再出現空的「分」 */}
             <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm
               ${isUnlocked ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-slate-400'}
             `}>
-              {bird.基礎分數} 分
+              {displayScore} 分
             </span>
           </div>
         </div>
