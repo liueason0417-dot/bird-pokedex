@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Bird } from '@/types/bird';
 import BirdCard from './BirdCard';
-import { supabase } from '@/lib/supabase'; // 【新增】引入 supabase 來抓取解鎖紀錄
+import { supabase } from '@/lib/supabase';
 
 interface BirdPokedexProps {
   initialBirds: Bird[];
@@ -11,27 +11,30 @@ interface BirdPokedexProps {
 
 export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  // 【修改】加入 'unlocked' 排序選項
   const [sortBy, setSortBy] = useState<'id' | 'rarity' | 'unlocked'>('rarity');
   
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 24; 
 
-  // 【新增】記住玩家已經解鎖的鳥類編號
   const [unlockedBirdIds, setUnlockedBirdIds] = useState<Set<number>>(new Set());
+  
+  // 【新增】用來儲存玩家所有抓寶紀錄的詳細資料 (為了顯示大圖用)
+  const [userRecords, setUserRecords] = useState<any[]>([]);
+  // 【新增】控制大圖視窗的狀態
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
 
-  // 【新增】一進來就去抓玩家的解鎖紀錄
   useEffect(() => {
     const fetchUnlockedBirds = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data } = await supabase
           .from('catch_records')
-          .select('bird_id')
-          .eq('user_id', session.user.id);
+          .select('*') // 【修改】把整筆紀錄都抓下來，不只抓 bird_id
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false }); // 照時間排，確保抓到最新的一張
         
         if (data) {
-          // 把所有抓過的鳥類編號存進 Set 裡面，方便快速尋找
+          setUserRecords(data);
           const ids = new Set(data.map(r => r.bird_id));
           setUnlockedBirdIds(ids);
         }
@@ -69,17 +72,14 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
   };
 
   const sortedBirds = [...filteredBirds].sort((a, b) => {
-    // 【新增】已解鎖優先排序邏輯
     if (sortBy === 'unlocked') {
       const aUnlocked = unlockedBirdIds.has(a.編號) ? 1 : 0;
       const bUnlocked = unlockedBirdIds.has(b.編號) ? 1 : 0;
       
-      // 第一關：先比有沒有解鎖 (有解鎖的排前面)
       if (aUnlocked !== bUnlocked) {
         return bUnlocked - aUnlocked; 
       }
       
-      // 第二關：如果都解鎖了，或是都沒解鎖，就依照「常見度」排得整整齊齊
       const scoreA = a.基礎分數 ? Number(a.基礎分數) : 999;
       const scoreB = b.基礎分數 ? Number(b.基礎分數) : 999;
       if (scoreA !== scoreB) return scoreA - scoreB;
@@ -91,7 +91,6 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
       return (a.編號 || 0) - (b.編號 || 0);
     }
 
-    // 常見度優先排序邏輯
     if (sortBy === 'rarity') {
       const scoreA = a.基礎分數 ? Number(a.基礎分數) : 999;
       const scoreB = b.基礎分數 ? Number(b.基礎分數) : 999;
@@ -104,7 +103,6 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
       return (a.編號 || 0) - (b.編號 || 0);
     }
     
-    // 預設依編號排序
     return (a.編號 || 0) - (b.編號 || 0);
   });
 
@@ -142,6 +140,15 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
     return pages;
   };
 
+  // 【新增】處理點擊卡片的邏輯
+  const handleCardClick = (birdId: number) => {
+    // 找找看這隻鳥有沒有在玩家的紀錄裡 (找最新的一筆)
+    const record = userRecords.find(r => r.bird_id === birdId);
+    if (record) {
+      setSelectedRecord(record); // 如果有紀錄，就打開大圖視窗
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto mb-12 max-w-2xl">
@@ -161,7 +168,6 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
             className="w-full sm:w-48 cursor-pointer rounded-full border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm transition-all focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
           >
             <option value="rarity">常見度優先</option>
-            {/* 【新增】已解鎖優先選項 */}
             <option value="unlocked">已解鎖優先 ✨</option>
             <option value="id">依編號排序</option>
           </select>
@@ -173,7 +179,14 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {currentBirds.map((bird) => (
-          <BirdCard key={bird.編號} bird={bird} />
+          // 【修改】在卡片外層包一個 div 來監聽點擊事件
+          <div 
+            key={bird.編號} 
+            onClick={() => handleCardClick(bird.編號)}
+            className={unlockedBirdIds.has(bird.編號) ? "cursor-pointer" : ""}
+          >
+            <BirdCard bird={bird} />
+          </div>
         ))}
       </div>
 
@@ -225,6 +238,61 @@ export default function BirdPokedex({ initialBirds = [] }: BirdPokedexProps) {
       {sortedBirds.length === 0 && (
         <div className="mt-12 text-center">
           <p className="text-lg text-slate-500">目前沒有顯示任何鳥類 🦅</p>
+        </div>
+      )}
+
+      {/* 【新增】照片大圖檢視視窗 (Lightbox Modal) */}
+      {selectedRecord && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md transition-all"
+          onClick={() => setSelectedRecord(null)} 
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()} 
+          >
+            <button 
+              onClick={() => setSelectedRecord(null)}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black text-white w-10 h-10 rounded-full flex items-center justify-center text-xl font-bold z-10 transition-colors shadow-md"
+            >
+              ✕
+            </button>
+
+            <div className="bg-slate-950 flex items-center justify-center overflow-hidden flex-1 min-h-[300px]">
+              <img 
+                src={selectedRecord.photo_url} 
+                alt="鳥類大圖" 
+                className="max-h-[65vh] w-auto object-contain mx-auto"
+              />
+            </div>
+
+            <div className="p-6 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-slate-100">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="text-2xl font-black text-slate-800">
+                    {safeBirds.find(b => b.編號 === selectedRecord.bird_id)?.中文名 || '未知鳥類'}
+                  </h3>
+                  {selectedRecord.is_first_catch && (
+                    <span className="bg-amber-400 text-white text-xs font-black px-2.5 py-1 rounded-full">
+                      ✨ 首次紀錄
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-500 italic">
+                  {safeBirds.find(b => b.編號 === selectedRecord.bird_id)?.英文名 || ''}
+                </p>
+              </div>
+
+              <div className="text-center sm:text-right">
+                <div className="text-emerald-600 font-black text-xl mb-1">
+                  +{selectedRecord.score_earned} 分
+                </div>
+                <div className="text-xs text-slate-400 font-medium">
+                  觀察日期：{new Date(selectedRecord.created_at).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
