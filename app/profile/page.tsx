@@ -117,13 +117,12 @@ export default function ProfilePage() {
   const displayName = user.user_metadata?.custom_name || user.user_metadata?.full_name || '神秘鳥友';
   const displayAvatar = user.user_metadata?.custom_avatar || user.user_metadata?.avatar_url;
 
-  // 【修改】使用 Set 自動過濾掉重複的頭像網址！
+  // 【修改】刪除多餘的 avatar3，只保留你真正擁有的圖片，並自動過濾重複
   const avatarOptions = Array.from(new Set([
     user.user_metadata?.avatar_url, // 選項 1: Google 頭像
-    '/avatar1.png',                 // 選項 2: 自訂頭像 1 (請確認檔名正確)
-    '/avatar2.png',                 // 選項 3: 自訂頭像 2 (請確認檔名正確)
-    '/avatar3.png',                 // 選項 4: 自訂頭像 3 (請確認檔名正確)
-  ].filter(Boolean))); // 先過濾掉空的，再過濾掉重複的
+    '/avatar1.png',                 // 選項 2: 自訂頭像 1
+    '/avatar2.png',                 // 選項 3: 自訂頭像 2
+  ].filter(Boolean))); 
 
   return (
     <main className="min-h-screen bg-slate-50 pb-12">
