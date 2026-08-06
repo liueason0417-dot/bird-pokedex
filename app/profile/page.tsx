@@ -117,13 +117,13 @@ export default function ProfilePage() {
   const displayName = user.user_metadata?.custom_name || user.user_metadata?.full_name || '神秘鳥友';
   const displayAvatar = user.user_metadata?.custom_avatar || user.user_metadata?.avatar_url;
 
-  // 【修改】換成你真實上傳的圖片檔名！
-  const avatarOptions = [
+  // 【修改】使用 Set 自動過濾掉重複的頭像網址！
+  const avatarOptions = Array.from(new Set([
     user.user_metadata?.avatar_url, // 選項 1: Google 頭像
-    '/icon-512.png',                // 選項 2: 你的 App 老鷹標誌
-    '/avatar1.png',                 // 選項 3: 自訂頭像 1
-    '/avatar2.png',                 // 選項 4: 自訂頭像 2
-  ].filter(Boolean); // 過濾掉空的
+    '/avatar1.png',                 // 選項 2: 自訂頭像 1 (請確認檔名正確)
+    '/avatar2.png',                 // 選項 3: 自訂頭像 2 (請確認檔名正確)
+    '/avatar3.png',                 // 選項 4: 自訂頭像 3 (請確認檔名正確)
+  ].filter(Boolean))); // 先過濾掉空的，再過濾掉重複的
 
   return (
     <main className="min-h-screen bg-slate-50 pb-12">
@@ -150,8 +150,8 @@ export default function ProfilePage() {
                     {avatarOptions.map((avatarUrl, idx) => (
                       <img 
                         key={idx}
-                        src={avatarUrl} 
-                        onClick={() => setNewAvatar(avatarUrl)}
+                        src={avatarUrl as string} 
+                        onClick={() => setNewAvatar(avatarUrl as string)}
                         className={`w-12 h-12 rounded-full cursor-pointer border-2 object-cover bg-white transition-all ${
                           newAvatar === avatarUrl ? 'border-emerald-500 scale-110 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
                         }`}
