@@ -117,13 +117,12 @@ export default function ProfilePage() {
   const displayName = user.user_metadata?.custom_name || user.user_metadata?.full_name || '神秘鳥友';
   const displayAvatar = user.user_metadata?.custom_avatar || user.user_metadata?.avatar_url;
 
-  // 【在這裡修改頭像檔名！】
+  // 【修改】換成你真實上傳的圖片檔名！
   const avatarOptions = [
     user.user_metadata?.avatar_url, // 選項 1: Google 頭像
     '/icon-512.png',                // 選項 2: 你的 App 老鷹標誌
-    '/你的圖片檔名1.png',             // 👉 把這裡換成你剛上傳的檔名 (例如: /bird1.png)
-    '/你的圖片檔名2.jpg',             // 👉 把這裡換成你剛上傳的檔名 (例如: /bird2.jpg)
-    '/你的圖片檔名3.png',             // 👉 把這裡換成你剛上傳的檔名 (例如: /bird3.png)
+    '/avatar1.png',                 // 選項 3: 自訂頭像 1
+    '/avatar2.png',                 // 選項 4: 自訂頭像 2
   ].filter(Boolean); // 過濾掉空的
 
   return (
