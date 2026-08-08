@@ -11,10 +11,9 @@ export default function ProfilePage() {
   const [birds, setBirds] = useState<Bird[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 編輯狀態
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newAvatar, setNewAvatar] = useState(''); // 儲存選擇的頭像
+  const [newAvatar, setNewAvatar] = useState(''); 
   const [isSavingName, setIsSavingName] = useState(false);
 
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
@@ -28,7 +27,6 @@ export default function ProfilePage() {
       }
       setUser(session.user);
       
-      // 預設填入目前的暱稱和頭像
       setNewName(session.user.user_metadata?.custom_name || session.user.user_metadata?.full_name || '');
       setNewAvatar(session.user.user_metadata?.custom_avatar || session.user.user_metadata?.avatar_url || '');
 
@@ -52,18 +50,11 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     if (!newName.trim()) return;
     setIsSavingName(true);
-    
     try {
-      // 同時儲存自訂暱稱與自訂頭像
       const { data, error } = await supabase.auth.updateUser({
-        data: { 
-          custom_name: newName.trim(),
-          custom_avatar: newAvatar
-        }
+        data: { custom_name: newName.trim(), custom_avatar: newAvatar }
       });
-
       if (error) throw error;
-      
       setUser(data.user);
       setIsEditingName(false);
       alert('✅ 個人檔案修改成功！');
@@ -78,11 +69,9 @@ export default function ProfilePage() {
   const handleDelete = async (recordId: number) => {
     const isConfirmed = window.confirm('確定要刪除這筆紀錄嗎？刪除後分數會自動扣除喔！');
     if (!isConfirmed) return;
-
     try {
       const { error } = await supabase.from('catch_records').delete().eq('id', recordId);
       if (error) throw error;
-      
       setRecords(prevRecords => prevRecords.filter(record => record.id !== recordId));
       alert('🗑️ 紀錄已成功刪除！');
     } catch (error) {
@@ -91,7 +80,43 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">載入中...</div>;
+  // 【升級】超有質感的骨架屏 (Skeleton Loading)
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-50 pb-12">
+        <Navbar />
+        <div className="max-w-5xl mx-auto px-4 py-8 animate-pulse">
+          {/* 名片骨架 */}
+          <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-10 mb-8 border border-slate-100">
+            <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+              <div className="w-24 h-24 rounded-full bg-slate-200 shrink-0"></div>
+              <div className="flex-1 space-y-4 w-full flex flex-col items-center sm:items-start">
+                <div className="h-8 bg-slate-200 rounded-lg w-48"></div>
+                <div className="h-5 bg-slate-200 rounded-lg w-32"></div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="bg-slate-50 rounded-2xl p-6 h-32 border border-slate-100"></div>
+              <div className="bg-slate-50 rounded-2xl p-6 h-32 border border-slate-100"></div>
+            </div>
+          </div>
+          {/* 照片牆骨架 */}
+          <div className="h-8 bg-slate-200 rounded-lg w-48 mb-6"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 h-72">
+                <div className="h-56 bg-slate-200"></div>
+                <div className="p-5 space-y-3">
+                  <div className="h-5 bg-slate-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (!user) {
     return (
@@ -113,15 +138,13 @@ export default function ProfilePage() {
   if (uniqueBirds >= 150) playerTitle = "生態大師 👑";
   if (uniqueBirds >= 300) playerTitle = "圖鑑守護者 🌟";
 
-  // 決定畫面上要顯示的資料
   const displayName = user.user_metadata?.custom_name || user.user_metadata?.full_name || '神秘鳥友';
   const displayAvatar = user.user_metadata?.custom_avatar || user.user_metadata?.avatar_url;
 
-  // 【修改】刪除多餘的 avatar3，只保留你真正擁有的圖片，並自動過濾重複
   const avatarOptions = Array.from(new Set([
-    user.user_metadata?.avatar_url, // 選項 1: Google 頭像
-    '/avatar1.png',                 // 選項 2: 自訂頭像 1
-    '/avatar2.png',                 // 選項 3: 自訂頭像 2
+    user.user_metadata?.avatar_url, 
+    '/avatar1.png',                 
+    '/avatar2.png',                 
   ].filter(Boolean))); 
 
   return (
@@ -132,7 +155,6 @@ export default function ProfilePage() {
         <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-10 mb-8 border border-slate-100">
           <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
             
-            {/* 頭像顯示區塊 */}
             {displayAvatar ? (
               <img src={displayAvatar} className="w-24 h-24 rounded-full border-4 border-emerald-50 shadow-sm object-cover bg-slate-100" alt="大頭貼" />
             ) : (
@@ -144,7 +166,6 @@ export default function ProfilePage() {
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 inline-block">
                   <p className="text-xs font-bold text-slate-500 mb-2 text-left">選擇你的頭像：</p>
                   
-                  {/* 頭像選擇器 */}
                   <div className="flex justify-center sm:justify-start gap-3 mb-4 flex-wrap">
                     {avatarOptions.map((avatarUrl, idx) => (
                       <img 
@@ -179,7 +200,7 @@ export default function ProfilePage() {
                     <button 
                       onClick={() => {
                         setIsEditingName(false);
-                        setNewAvatar(displayAvatar); // 取消時恢復原本頭像
+                        setNewAvatar(displayAvatar); 
                       }}
                       className="bg-slate-200 text-slate-600 px-4 py-1.5 rounded-lg font-bold hover:bg-slate-300"
                     >

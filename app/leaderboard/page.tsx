@@ -46,7 +46,32 @@ export default function LeaderboardPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-slate-500 font-bold">計算積分中... ⏳</div>
+          // 【升級】排行榜的骨架屏 (Skeleton Loading)
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-pulse">
+            <div className="divide-y divide-slate-100">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex items-center p-4 sm:p-6">
+                  {/* 名次骨架 */}
+                  <div className="w-12 sm:w-16 h-8 bg-slate-200 rounded-lg shrink-0 mx-auto"></div>
+                  
+                  {/* 頭像與名字骨架 */}
+                  <div className="flex items-center gap-4 flex-1 min-w-0 ml-2">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-200 shrink-0"></div>
+                    <div className="space-y-2 flex-1">
+                      <div className="h-5 bg-slate-200 rounded w-32"></div>
+                      <div className="h-3 bg-slate-200 rounded w-24"></div>
+                    </div>
+                  </div>
+                  
+                  {/* 積分骨架 */}
+                  <div className="shrink-0 pl-4 space-y-2 flex flex-col items-end">
+                    <div className="h-6 bg-slate-200 rounded w-16"></div>
+                    <div className="h-3 bg-slate-200 rounded w-10"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             {leaders.length === 0 ? (
@@ -77,7 +102,7 @@ export default function LeaderboardPage() {
                       {/* 頭像與名字 */}
                       <div className="flex items-center gap-4 flex-1 min-w-0">
                         {player.avatar_url ? (
-                          <img src={player.avatar_url} alt={player.user_name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white shadow-sm shrink-0" />
+                          <img src={player.avatar_url} alt={player.user_name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white shadow-sm shrink-0 object-cover bg-slate-100" />
                         ) : (
                           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">👤</div>
                         )}
